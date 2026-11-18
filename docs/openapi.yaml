@@ -33,6 +33,8 @@ tags:
     description: Call management (reject incoming calls)
   - name: chat
     description: Chat conversations and messaging
+  - name: label
+    description: WhatsApp Business labels (Business accounts only)
   - name: group
     description: Group setting
   - name: newsletter
@@ -3327,6 +3329,331 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorInternalServer'
 
+  /labels:
+    get:
+      operationId: listLabels
+      tags:
+        - label
+      summary: List labels
+      description: |
+        List the device's WhatsApp Business labels (deleted labels are excluded), ordered by numeric id.
+        **WhatsApp Business accounts only.** Labels are read from GOWA's chat storage, which is filled
+        from WhatsApp app-state sync (`label_edit` / `label_jid`) and from label changes made through
+        this API. Labels that already existed before this GOWA version was deployed on a paired device
+        appear once WhatsApp sends a change for them (or after the device is paired again).
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdHeader'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabelListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorUnauthorized'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorInternalServer'
+
+  /label:
+    post:
+      operationId: createLabel
+      tags:
+        - label
+      summary: Create a label
+      description: |
+        Create a WhatsApp Business label. **WhatsApp Business accounts only.**
+        When `label_id` is omitted, GOWA uses one more than the highest numeric label id it has seen
+        for the device (deleted labels included). Passing the id of an existing, non-deleted label
+        returns 400.
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdHeader'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label_id:
+                  type: string
+                  pattern: '^[1-9][0-9]*$'
+                  example: '12'
+                  description: Optional numeric label id. Omit to use the next free id.
+                name:
+                  type: string
+                  example: VIP
+                color:
+                  type: integer
+                  minimum: 0
+                  maximum: 19
+                  default: 0
+                  example: 4
+                  description: WhatsApp label color index (0-19).
+              required:
+                - name
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabelResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBadRequest'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorUnauthorized'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorInternalServer'
+
+  /label/{label_id}:
+    patch:
+      operationId: updateLabel
+      tags:
+        - label
+      summary: Rename or recolor a label
+      description: |
+        Change a label's name and/or color. **WhatsApp Business accounts only.**
+        WhatsApp's label edit carries both fields, so an omitted field keeps its stored value.
+        Returns 404 when the label is unknown or deleted.
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdHeader'
+        - $ref: '#/components/parameters/LabelIdPath'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              description: At least one of `name` and `color` is required.
+              properties:
+                name:
+                  type: string
+                  example: VIP customers
+                color:
+                  type: integer
+                  minimum: 0
+                  maximum: 19
+                  example: 7
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabelResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBadRequest'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorUnauthorized'
+        '404':
+          description: Label Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorNotFound'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorInternalServer'
+    delete:
+      operationId: deleteLabel
+      tags:
+        - label
+      summary: Delete a label
+      description: |
+        Delete a label. **WhatsApp Business accounts only.** GOWA also forgets the label's chat
+        associations. Returns 404 when the label is unknown or already deleted.
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdHeader'
+        - $ref: '#/components/parameters/LabelIdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteLabelResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBadRequest'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorUnauthorized'
+        '404':
+          description: Label Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorNotFound'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorInternalServer'
+
+  /label/{label_id}/chats:
+    get:
+      operationId: getLabelChats
+      tags:
+        - label
+      summary: List chats carrying a label
+      description: |
+        List the chat JIDs that currently carry the label. **WhatsApp Business accounts only.**
+        Chats WhatsApp addresses by LID are reported under their phone JID when the mapping is known.
+        Returns 404 when the label is unknown or deleted.
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdHeader'
+        - $ref: '#/components/parameters/LabelIdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabelChatsResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBadRequest'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorUnauthorized'
+        '404':
+          description: Label Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorNotFound'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorInternalServer'
+
+  /label/{label_id}/chat/{chat_jid}:
+    post:
+      operationId: addChatLabel
+      tags:
+        - label
+      summary: Add a label to a chat
+      description: |
+        Apply a label to a chat. **WhatsApp Business accounts only.** Returns 404 when the label is
+        unknown or deleted. No request body.
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdHeader'
+        - $ref: '#/components/parameters/LabelIdPath'
+        - $ref: '#/components/parameters/LabelChatJidPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabelChatResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBadRequest'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorUnauthorized'
+        '404':
+          description: Label Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorNotFound'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorInternalServer'
+    delete:
+      operationId: removeChatLabel
+      tags:
+        - label
+      summary: Remove a label from a chat
+      description: |
+        Remove a label from a chat. **WhatsApp Business accounts only.** Idempotent: the label does
+        not need to be known to GOWA. No request body.
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdHeader'
+        - $ref: '#/components/parameters/LabelIdPath'
+        - $ref: '#/components/parameters/LabelChatJidPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabelChatResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBadRequest'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorUnauthorized'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorInternalServer'
+
   /group/info:
     get:
       operationId: groupInfo
@@ -4986,6 +5313,23 @@ components:
       schema:
         type: string
         example: 'my-device-id'
+    LabelIdPath:
+      name: label_id
+      in: path
+      required: true
+      description: Numeric WhatsApp label id.
+      schema:
+        type: string
+        pattern: '^[1-9][0-9]*$'
+        example: '12'
+    LabelChatJidPath:
+      name: chat_jid
+      in: path
+      required: true
+      description: Chat JID (e.g., phone@s.whatsapp.net or groupid@g.us). Percent-encoded values (e.g., groupid%40g.us) are accepted.
+      schema:
+        type: string
+        example: '6289685028129@s.whatsapp.net'
     ScheduleIdPath:
       name: schedule_id
       in: path
@@ -6835,6 +7179,141 @@ components:
               type: string
               example: '6289685028129@s.whatsapp.net'
             archived:
+              type: boolean
+              example: true
+    LabelInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '12'
+        name:
+          type: string
+          example: VIP
+        color:
+          type: integer
+          example: 4
+          description: WhatsApp label color index (0-19)
+        predefined_id:
+          type: integer
+          example: 1
+          description: Present only for WhatsApp's predefined Business labels
+    LabelListResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          example: 200
+        code:
+          type: string
+          example: SUCCESS
+        message:
+          type: string
+          example: Success get label list
+        results:
+          type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/LabelInfo'
+    LabelResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          example: 200
+        code:
+          type: string
+          example: SUCCESS
+        message:
+          type: string
+          example: Label created successfully
+        results:
+          type: object
+          properties:
+            status:
+              type: string
+              example: success
+            message:
+              type: string
+              example: Label created successfully
+            label:
+              $ref: '#/components/schemas/LabelInfo'
+    DeleteLabelResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          example: 200
+        code:
+          type: string
+          example: SUCCESS
+        message:
+          type: string
+          example: Label deleted successfully
+        results:
+          type: object
+          properties:
+            status:
+              type: string
+              example: success
+            message:
+              type: string
+              example: Label deleted successfully
+            label_id:
+              type: string
+              example: '12'
+    LabelChatsResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          example: 200
+        code:
+          type: string
+          example: SUCCESS
+        message:
+          type: string
+          example: Success get label chats
+        results:
+          type: object
+          properties:
+            label:
+              $ref: '#/components/schemas/LabelInfo'
+            chats:
+              type: array
+              items:
+                type: string
+              example: ['6289685028129@s.whatsapp.net', '120363151317289139@g.us']
+    LabelChatResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          example: 200
+        code:
+          type: string
+          example: SUCCESS
+        message:
+          type: string
+          example: Label added to chat successfully
+        results:
+          type: object
+          properties:
+            status:
+              type: string
+              example: success
+            message:
+              type: string
+              example: Label added to chat successfully
+            label_id:
+              type: string
+              example: '12'
+            chat_jid:
+              type: string
+              example: '6289685028129@s.whatsapp.net'
+            labeled:
               type: boolean
               example: true
     GroupInfoResponse:
