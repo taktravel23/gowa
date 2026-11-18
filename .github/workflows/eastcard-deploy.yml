@@ -1,0 +1,67 @@
+# EastCard: build this fork's image and run it on the GOWA VM in eastcard-prod
+# (Terraform: taktravel23/eastcard-infra, modules/gowa). The VM has no public
+# IP; it pulls gowa:main on every boot, so a deploy is build, push, restart.
+#
+# Two repo variables switch it on in steps:
+#   GCP_BUILD_ENABLED  = 'true' once the deploy identity exists (shared applied)
+#   GCP_DEPLOY_ENABLED = 'true' once the VM and its secrets exist
+#
+# A restart drops the WhatsApp connection for about a minute; the sessions
+# are on the VM's disk and reconnect on their own.
+
+name: EastCard deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: eastcard-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # keyless login to GCP (Workload Identity Federation)
+
+env:
+  IMAGE: me-west1-docker.pkg.dev/eastcard-shared/apps/gowa
+  PROJECT_ID: eastcard-prod
+  ZONE: us-east1-b
+  VM: gowa
+
+jobs:
+  deploy:
+    name: Build & deploy
+    # main only, also for manual runs; GCP accepts this repo's main only as well.
+    if: vars.GCP_BUILD_ENABLED == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/466214838074/locations/global/workloadIdentityPools/github/providers/github
+          service_account: deploy-gowa@eastcard-shared.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build and push image
+        run: |
+          set -euo pipefail
+          gcloud auth configure-docker me-west1-docker.pkg.dev --quiet
+          docker build --pull -f docker/golang.Dockerfile \
+            -t "$IMAGE:${GITHUB_SHA}" -t "$IMAGE:main" .
+          docker push "$IMAGE:${GITHUB_SHA}"
+          docker push "$IMAGE:main"
+
+      # Stop is a clean shutdown (containers get SIGTERM, SQLite closes);
+      # the boot script then pulls gowa:main and starts it.
+      - name: Restart the VM
+        if: vars.GCP_DEPLOY_ENABLED == 'true'
+        run: |
+          set -euo pipefail
+          gcloud compute instances stop "$VM" --project "$PROJECT_ID" --zone "$ZONE" --quiet
+          gcloud compute instances start "$VM" --project "$PROJECT_ID" --zone "$ZONE" --quiet
+          echo "Deployed ${GITHUB_SHA::12}"
