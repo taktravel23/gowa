@@ -33,7 +33,8 @@ env:
 jobs:
   deploy:
     name: Build & deploy
-    if: vars.GCP_BUILD_ENABLED == 'true'
+    # main only, also for manual runs; GCP accepts this repo's main only as well.
+    if: vars.GCP_BUILD_ENABLED == 'true' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
