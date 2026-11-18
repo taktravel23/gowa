@@ -56,6 +56,22 @@ type IChatStorageRepository interface {
 	GetPollDefinitionByIDAndDevice(deviceID, pollMessageID string) (*PollDefinition, error)
 	AppendPollOption(deviceID, chatJID, pollMessageID string, option PollOption) error
 
+	// Label operations (WhatsApp Business). All are device-scoped.
+	// UpsertLabel stores a label unless the stored row is newer (UpdatedAt).
+	// Storing a deleted label also clears its chat associations.
+	UpsertLabel(label *Label) error
+	// GetLabel returns the stored label (deleted or not), or nil when unknown.
+	GetLabel(deviceID, labelID string) (*Label, error)
+	// ListLabels returns the device's labels ordered by numeric id.
+	ListLabels(deviceID string, includeDeleted bool) ([]*Label, error)
+	// ListKnownLabelIDs returns every label id the device has seen, in labels
+	// or in chat associations, deleted or not.
+	ListKnownLabelIDs(deviceID string) ([]string, error)
+	// UpsertLabelChat stores a chat association unless the stored row is newer.
+	UpsertLabelChat(association *LabelChat) error
+	// ListLabelChatJIDs returns the chats currently carrying the label.
+	ListLabelChatJIDs(deviceID, labelID string) ([]string, error)
+
 	// Chatwoot correlation operations
 	UpsertChatwootMessageLink(link *ChatwootMessageLink) error
 	GetChatwootMessageLinkByWhatsAppID(deviceID, waMessageID string) (*ChatwootMessageLink, error)

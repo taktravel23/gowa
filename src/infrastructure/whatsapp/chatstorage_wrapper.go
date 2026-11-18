@@ -336,6 +336,43 @@ func (r *deviceChatStorage) UpsertPollDefinition(definition *domainChatStorage.P
 	return r.base.UpsertPollDefinition(definition)
 }
 
+func (r *deviceChatStorage) targetDevice(deviceID string) string {
+	if deviceID == "" {
+		return r.deviceID
+	}
+	return deviceID
+}
+
+func (r *deviceChatStorage) UpsertLabel(label *domainChatStorage.Label) error {
+	if label != nil && label.DeviceID == "" {
+		label.DeviceID = r.deviceID
+	}
+	return r.base.UpsertLabel(label)
+}
+
+func (r *deviceChatStorage) GetLabel(deviceID, labelID string) (*domainChatStorage.Label, error) {
+	return r.base.GetLabel(r.targetDevice(deviceID), labelID)
+}
+
+func (r *deviceChatStorage) ListLabels(deviceID string, includeDeleted bool) ([]*domainChatStorage.Label, error) {
+	return r.base.ListLabels(r.targetDevice(deviceID), includeDeleted)
+}
+
+func (r *deviceChatStorage) ListKnownLabelIDs(deviceID string) ([]string, error) {
+	return r.base.ListKnownLabelIDs(r.targetDevice(deviceID))
+}
+
+func (r *deviceChatStorage) UpsertLabelChat(association *domainChatStorage.LabelChat) error {
+	if association != nil && association.DeviceID == "" {
+		association.DeviceID = r.deviceID
+	}
+	return r.base.UpsertLabelChat(association)
+}
+
+func (r *deviceChatStorage) ListLabelChatJIDs(deviceID, labelID string) ([]string, error) {
+	return r.base.ListLabelChatJIDs(r.targetDevice(deviceID), labelID)
+}
+
 func (r *deviceChatStorage) GetPollDefinition(deviceID, chatJID, pollMessageID string) (*domainChatStorage.PollDefinition, error) {
 	targetDeviceID := deviceID
 	if targetDeviceID == "" {
