@@ -804,6 +804,13 @@ You may also fork or modify the source code.
 | ✅       | Archive Chat                           | POST   | /chat/:chat_jid/archive             |
 | ✅       | Set Disappearing Messages              | POST   | /chat/:chat_jid/disappearing        |
 | ✅       | Request Chat History (Load Older Msgs) | POST   | /chat/:chat_jid/history             |
+| ✅       | List Labels (Business only)            | GET    | /labels                             |
+| ✅       | Create Label (Business only)           | POST   | /label                              |
+| ✅       | Update Label (Business only)           | PATCH  | /label/:label_id                    |
+| ✅       | Delete Label (Business only)           | DELETE | /label/:label_id                    |
+| ✅       | Get Label Chats (Business only)        | GET    | /label/:label_id/chats              |
+| ✅       | Add Label to Chat (Business only)      | POST   | /label/:label_id/chat/:chat_jid     |
+| ✅       | Remove Label from Chat (Business only) | DELETE | /label/:label_id/chat/:chat_jid     |
 | ✅       | Chatwoot Sync History                  | POST   | /chatwoot/sync                      |
 | ✅       | Chatwoot Sync Status                   | GET    | /chatwoot/sync/status               |
 | ✅       | List Chatwoot Configurations           | GET    | /chatwoot/configs                   |
